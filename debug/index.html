@@ -1,0 +1,2844 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Debug &amp; Monitor de Gateway</title>
+  <link rel="shortcut icon" href="./favicon.png">
+  <style>
+    /* =========================================================
+       Design Tokens — Identidade Visual Guardião Cultural (Dark)
+       ========================================================= */
+    :root {
+      --bg-page: #0c0a09;
+      --bg-card: #171412;
+      --bg-card-elevated: #1f1b18;
+      --bg-input: #12100e;
+      --bg-terminal: #090807;
+
+      --border-subtle: #2e2925;
+      --border-strong: #443c35;
+
+      /* Paleta da marca (#92400e) */
+      --brand: #92400e;
+      --brand-hover: #b45309;
+      --brand-bright: #d97706;
+      --brand-glow: #f59e0b;
+      --brand-soft: rgba(146, 64, 14, 0.22);
+      --brand-soft-border: rgba(217, 119, 6, 0.45);
+      --brand-focus-ring: rgba(245, 158, 11, 0.22);
+
+      --text-primary: #f5f5f4;
+      --text-secondary: #a8a29e;
+      --text-muted: #78716c;
+
+      /* Semânticos */
+      --success: #10b981;
+      --success-bg: rgba(16, 185, 129, 0.14);
+      --success-border: rgba(16, 185, 129, 0.38);
+      --success-text: #6ee7b7;
+
+      --danger: #ef4444;
+      --danger-hover: #dc2626;
+      --danger-bg: rgba(239, 68, 68, 0.14);
+      --danger-border: rgba(239, 68, 68, 0.42);
+      --danger-text: #fca5a5;
+
+      --info: #38bdf8;
+      --info-bg: rgba(56, 189, 248, 0.14);
+      --info-border: rgba(56, 189, 248, 0.38);
+      --info-text: #7dd3fc;
+
+      --warning-bg: rgba(146, 64, 14, 0.22);
+      --warning-border: rgba(217, 119, 6, 0.5);
+      --warning-text: #fde68a;
+
+      /* Etiquetas do Terminal */
+      --term-tx: #f59e0b;
+      --term-rx: #34d399;
+      --term-sys: #a8a29e;
+      --term-err: #f87171;
+
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.45);
+
+      --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: var(--font-sans);
+      background-color: var(--bg-page);
+      background-image:
+        radial-gradient(circle at 12% 0%, rgba(146, 64, 14, 0.16) 0%, transparent 42%),
+        radial-gradient(circle at 88% 10%, rgba(180, 83, 9, 0.08) 0%, transparent 38%);
+      color: var(--text-primary);
+      line-height: 1.5;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* =========================================================
+       Estrutura Principal
+       ========================================================= */
+    .app-shell {
+      max-width: 1380px;
+      margin: 0 auto;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* Cabeçalho & Barra de Conexão Serial */
+    .topbar {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-top: 2px solid var(--brand);
+      border-radius: var(--radius-lg);
+      padding: 1rem 1.25rem;
+      box-shadow: var(--shadow-card);
+      display: flex;
+      flex-direction: column;
+      gap: 0.9rem;
+    }
+
+    .topbar-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.9rem;
+    }
+
+    .brand-icon {
+      width: 46px;
+      height: 46px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(145deg, #92400e 0%, #5c2708 100%);
+      border: 1px solid rgba(217, 119, 6, 0.5);
+      color: #fef3c7;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 4px 16px rgba(146, 64, 14, 0.35);
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 1.18rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.015em;
+    }
+
+    .brand p {
+      margin: 0.1rem 0 0;
+      font-size: 0.84rem;
+      color: var(--text-secondary);
+    }
+
+    .serial-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.65rem;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.45rem 0.85rem;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-card-elevated);
+      color: var(--text-secondary);
+      transition: all 0.2s ease;
+    }
+
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background-color: var(--text-muted);
+    }
+
+    .status-badge.connected {
+      background: var(--success-bg);
+      border-color: var(--success-border);
+      color: var(--success-text);
+    }
+
+    .status-badge.connected .status-dot {
+      background-color: var(--success);
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
+      animation: pulseDot 2s infinite;
+    }
+
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.45; }
+    }
+
+    .baud-group {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      background: var(--bg-card-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 0.25rem 0.65rem;
+      min-height: 40px;
+    }
+
+    .baud-group label {
+      font-size: 0.76rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .baud-group select {
+      border: none;
+      background: transparent;
+      font-family: var(--font-mono);
+      font-size: 0.86rem;
+      font-weight: 600;
+      color: var(--brand-glow);
+      padding: 0.25rem 0.2rem;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .baud-group select option {
+      background: var(--bg-card-elevated);
+      color: var(--text-primary);
+    }
+
+    .baud-group select:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Barra Secundária: Simulador Discreto */
+    .subbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding-top: 0.8rem;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .sim-group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.45rem;
+    }
+
+    .sim-label {
+      font-size: 0.74rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-right: 0.25rem;
+    }
+
+    /* Banner de aviso (Web Serial não suportada) */
+    .alert-banner {
+      display: none;
+      align-items: flex-start;
+      gap: 0.85rem;
+      background: var(--warning-bg);
+      border: 1px solid var(--warning-border);
+      color: var(--warning-text);
+      border-radius: var(--radius-lg);
+      padding: 1rem 1.25rem;
+      font-size: 0.9rem;
+    }
+
+    .alert-banner.visible {
+      display: flex;
+    }
+
+    .alert-banner svg {
+      flex-shrink: 0;
+      margin-top: 2px;
+      color: var(--brand-glow);
+    }
+
+    .alert-banner strong {
+      display: block;
+      margin-bottom: 0.2rem;
+      font-size: 0.95rem;
+      color: #fef3c7;
+    }
+
+    /* =========================================================
+       Botões
+       ========================================================= */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.48rem;
+      padding: 0.58rem 1rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      font-family: var(--font-sans);
+      border-radius: var(--radius-md);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+      min-height: 40px;
+    }
+
+    .btn:disabled {
+      opacity: 0.42;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    .btn-primary {
+      background: var(--brand);
+      border-color: rgba(217, 119, 6, 0.45);
+      color: #fffbeb;
+      box-shadow: 0 2px 10px rgba(146, 64, 14, 0.3);
+    }
+
+    .btn-primary:hover {
+      background: var(--brand-hover);
+      border-color: var(--brand-glow);
+    }
+
+    .btn-secondary {
+      background: var(--bg-card-elevated);
+      color: var(--text-primary);
+      border-color: var(--border-strong);
+    }
+
+    .btn-secondary:hover {
+      background: #292420;
+      border-color: var(--brand-bright);
+      color: #fffbeb;
+    }
+
+    .btn-ghost-amber {
+      background: var(--brand-soft);
+      color: #fde68a;
+      border-color: var(--brand-soft-border);
+    }
+
+    .btn-ghost-amber:hover {
+      background: rgba(180, 83, 9, 0.36);
+      border-color: var(--brand-glow);
+    }
+
+    .btn-danger {
+      background: #991b1b;
+      border-color: rgba(248, 113, 113, 0.45);
+      color: #fef2f2;
+    }
+
+    .btn-danger:hover {
+      background: var(--danger-hover);
+    }
+
+    .btn-sim-move {
+      background: rgba(239, 68, 68, 0.12);
+      color: #fca5a5;
+      border-color: rgba(239, 68, 68, 0.35);
+    }
+
+    .btn-sim-move:hover {
+      background: rgba(239, 68, 68, 0.22);
+      border-color: #ef4444;
+    }
+
+    .btn-sim-ka {
+      background: rgba(16, 185, 129, 0.12);
+      color: #6ee7b7;
+      border-color: rgba(16, 185, 129, 0.35);
+    }
+
+    .btn-sim-ka:hover {
+      background: rgba(16, 185, 129, 0.22);
+      border-color: #10b981;
+    }
+
+    .btn-sm {
+      padding: 0.36rem 0.72rem;
+      font-size: 0.77rem;
+      min-height: 32px;
+      border-radius: var(--radius-sm);
+    }
+
+    /* =========================================================
+       1. Painel Luminoso de Leitura + Métricas Resumidas
+       ========================================================= */
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.25rem;
+    }
+
+    @media (min-width: 1024px) {
+      .hero-grid {
+        grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+      }
+    }
+
+    .beacon-lamp-card {
+      position: relative;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem 1.35rem;
+      box-shadow: var(--shadow-card);
+      display: flex;
+      flex-direction: column;
+      gap: 1.1rem;
+      overflow: hidden;
+      transition: border-color 0.35s ease, box-shadow 0.35s ease, background-color 0.35s ease;
+    }
+
+    /* Estados Luminosos Ativos (brilho intenso por ~3s) */
+    .beacon-lamp-card.flash-movement {
+      border-color: #ef4444;
+      background: radial-gradient(circle at 14% 30%, rgba(239, 68, 68, 0.28) 0%, rgba(245, 158, 11, 0.12) 38%, var(--bg-card) 75%);
+      box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.45), 0 0 38px rgba(239, 68, 68, 0.32);
+      animation: lampPulseMove 1.1s ease-in-out infinite;
+    }
+
+    .beacon-lamp-card.flash-keepalive {
+      border-color: #10b981;
+      background: radial-gradient(circle at 14% 30%, rgba(16, 185, 129, 0.28) 0%, rgba(52, 211, 153, 0.08) 40%, var(--bg-card) 75%);
+      box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.45), 0 0 38px rgba(16, 185, 129, 0.3);
+      animation: lampPulseKa 1.1s ease-in-out infinite;
+    }
+
+    .beacon-lamp-card.flash-maintenance {
+      border-color: #d97706;
+      background: radial-gradient(circle at 14% 30%, rgba(217, 119, 6, 0.3) 0%, rgba(245, 158, 11, 0.1) 40%, var(--bg-card) 75%);
+      box-shadow: 0 0 0 1px rgba(217, 119, 6, 0.5), 0 0 38px rgba(217, 119, 6, 0.32);
+      animation: lampPulseMaint 1.1s ease-in-out infinite;
+    }
+
+    .beacon-lamp-card.flash-unknown {
+      border-color: #38bdf8;
+      background: radial-gradient(circle at 14% 30%, rgba(56, 189, 248, 0.24) 0%, rgba(217, 119, 6, 0.1) 40%, var(--bg-card) 75%);
+      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.45), 0 0 34px rgba(56, 189, 248, 0.26);
+    }
+
+    /* Estados de Repouso após ~3s */
+    .beacon-lamp-card.idle-movement    { border-color: rgba(239, 68, 68, 0.45); }
+    .beacon-lamp-card.idle-keepalive   { border-color: rgba(16, 185, 129, 0.45); }
+    .beacon-lamp-card.idle-maintenance { border-color: rgba(217, 119, 6, 0.5); }
+    .beacon-lamp-card.idle-unknown     { border-color: rgba(56, 189, 248, 0.45); }
+
+    @keyframes lampPulseMove {
+      0%, 100% { box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.5), 0 0 28px rgba(239, 68, 68, 0.28); }
+      50%      { box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.7), 0 0 46px rgba(239, 68, 68, 0.46); }
+    }
+
+    @keyframes lampPulseKa {
+      0%, 100% { box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.45), 0 0 26px rgba(16, 185, 129, 0.25); }
+      50%      { box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.75), 0 0 44px rgba(16, 185, 129, 0.44); }
+    }
+
+    @keyframes lampPulseMaint {
+      0%, 100% { box-shadow: 0 0 0 1px rgba(217, 119, 6, 0.5), 0 0 26px rgba(217, 119, 6, 0.28); }
+      50%      { box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.8), 0 0 44px rgba(217, 119, 6, 0.46); }
+    }
+
+    .lamp-top {
+      display: flex;
+      align-items: center;
+      gap: 1.1rem;
+      flex-wrap: wrap;
+    }
+
+    .lamp-orb {
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      background: var(--bg-card-elevated);
+      border: 2px solid var(--border-strong);
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.3s ease;
+    }
+
+    .beacon-lamp-card.flash-movement .lamp-orb {
+      background: radial-gradient(circle, #f59e0b 0%, #ef4444 72%, #991b1b 100%);
+      border-color: #fde68a;
+      color: #fffbeb;
+      box-shadow: 0 0 26px rgba(239, 68, 68, 0.85), 0 0 50px rgba(245, 158, 11, 0.45);
+      transform: scale(1.05);
+    }
+
+    .beacon-lamp-card.idle-movement .lamp-orb {
+      background: rgba(239, 68, 68, 0.16);
+      border-color: rgba(239, 68, 68, 0.55);
+      color: #fca5a5;
+    }
+
+    .beacon-lamp-card.flash-keepalive .lamp-orb {
+      background: radial-gradient(circle, #6ee7b7 0%, #10b981 70%, #047857 100%);
+      border-color: #d1fae5;
+      color: #064e3b;
+      box-shadow: 0 0 26px rgba(16, 185, 129, 0.85), 0 0 48px rgba(52, 211, 153, 0.42);
+      transform: scale(1.05);
+    }
+
+    .beacon-lamp-card.idle-keepalive .lamp-orb {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: rgba(16, 185, 129, 0.55);
+      color: #6ee7b7;
+    }
+
+    .beacon-lamp-card.flash-maintenance .lamp-orb {
+      background: radial-gradient(circle, #fde68a 0%, #d97706 72%, #92400e 100%);
+      border-color: #fef3c7;
+      color: #451a03;
+      box-shadow: 0 0 26px rgba(217, 119, 6, 0.85), 0 0 48px rgba(245, 158, 11, 0.42);
+      transform: scale(1.05);
+    }
+
+    .beacon-lamp-card.idle-maintenance .lamp-orb {
+      background: rgba(217, 119, 6, 0.18);
+      border-color: rgba(217, 119, 6, 0.6);
+      color: #fde68a;
+    }
+
+    .beacon-lamp-card.flash-unknown .lamp-orb {
+      background: radial-gradient(circle, #7dd3fc 0%, #0284c7 75%, #0c4a6e 100%);
+      border-color: #e0f2fe;
+      color: #f0f9ff;
+      box-shadow: 0 0 24px rgba(56, 189, 248, 0.75);
+      transform: scale(1.05);
+    }
+
+    .beacon-lamp-card.idle-unknown .lamp-orb {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: rgba(56, 189, 248, 0.55);
+      color: #7dd3fc;
+    }
+
+    .lamp-headline {
+      flex: 1;
+      min-width: 210px;
+    }
+
+    .lamp-eyebrow {
+      font-size: 0.74rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 0.15rem;
+    }
+
+    .lamp-title {
+      margin: 0;
+      font-size: 1.28rem;
+      font-weight: 800;
+      letter-spacing: -0.015em;
+      color: var(--text-primary);
+    }
+
+    .beacon-lamp-card.flash-movement .lamp-title,
+    .beacon-lamp-card.idle-movement .lamp-title { color: #fca5a5; }
+
+    .beacon-lamp-card.flash-keepalive .lamp-title,
+    .beacon-lamp-card.idle-keepalive .lamp-title { color: #6ee7b7; }
+
+    .beacon-lamp-card.flash-maintenance .lamp-title,
+    .beacon-lamp-card.idle-maintenance .lamp-title { color: #fde68a; }
+
+    .beacon-lamp-card.flash-unknown .lamp-title,
+    .beacon-lamp-card.idle-unknown .lamp-title { color: #7dd3fc; }
+
+    .lamp-sub {
+      margin: 0.18rem 0 0;
+      font-size: 0.83rem;
+      color: var(--text-secondary);
+    }
+
+    .lamp-details {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.7rem;
+      padding-top: 0.9rem;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    @media (min-width: 640px) {
+      .lamp-details {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+    }
+
+    .lamp-stat {
+      background: var(--bg-card-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 0.62rem 0.78rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.18rem;
+    }
+
+    .lamp-stat-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+
+    .lamp-stat-value {
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      word-break: break-all;
+    }
+
+    /* Barras de qualidade de sinal RSSI */
+    .rssi-bars {
+      display: inline-flex;
+      align-items: flex-end;
+      gap: 2px;
+      height: 13px;
+      flex-shrink: 0;
+    }
+
+    .rssi-bar {
+      width: 3px;
+      border-radius: 1px;
+      background: #2e2925;
+    }
+
+    .rssi-bar:nth-child(1) { height: 4px; }
+    .rssi-bar:nth-child(2) { height: 7px; }
+    .rssi-bar:nth-child(3) { height: 10px; }
+    .rssi-bar:nth-child(4) { height: 13px; }
+
+    .rssi-bar.on-good { background: var(--success); }
+    .rssi-bar.on-mid  { background: var(--brand-glow); }
+    .rssi-bar.on-weak { background: var(--danger); }
+
+    /* Cards de Métricas Resumidas */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.85rem;
+    }
+
+    .metric-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 1rem 1.1rem;
+      box-shadow: var(--shadow-card);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 0.45rem;
+    }
+
+    .metric-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    .metric-label {
+      font-size: 0.76rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+    }
+
+    .metric-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+    }
+
+    .metric-value {
+      font-family: var(--font-mono);
+      font-size: 1.75rem;
+      font-weight: 800;
+      line-height: 1.1;
+      color: var(--text-primary);
+    }
+
+    .metric-card.m-move .metric-value { color: #fca5a5; }
+    .metric-card.m-ka   .metric-value { color: #6ee7b7; }
+    .metric-card.m-uniq .metric-value { color: #fde68a; }
+
+    .metric-sub {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+    }
+
+    /* =========================================================
+       2. Lista de Beacons + Histórico de Leituras
+       ========================================================= */
+    .beacons-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.25rem;
+      align-items: start;
+    }
+
+    @media (min-width: 1024px) {
+      .beacons-grid {
+        grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+      }
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-card);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .card-header {
+      padding: 0.9rem 1.2rem;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      background: var(--bg-card-elevated);
+    }
+
+    .card-title-group {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+    }
+
+    .card-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: var(--brand-soft);
+      border: 1px solid var(--brand-soft-border);
+      color: var(--brand-glow);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .card-title {
+      margin: 0;
+      font-size: 0.96rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .card-subtitle {
+      margin: 0;
+      font-size: 0.76rem;
+      color: var(--text-secondary);
+    }
+
+    /* Lista de Beacons */
+    .beacon-list {
+      padding: 0.85rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      max-height: 490px;
+      overflow-y: auto;
+    }
+
+    .beacon-item {
+      background: var(--bg-card-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 0.85rem 0.95rem;
+      cursor: pointer;
+      transition: border-color 0.15s ease, background-color 0.15s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+      text-align: left;
+      width: 100%;
+      color: inherit;
+      font-family: inherit;
+    }
+
+    .beacon-item:hover {
+      border-color: var(--brand-bright);
+      background: #25201c;
+    }
+
+    .beacon-item.selected {
+      border-color: var(--brand-glow);
+      background: rgba(146, 64, 14, 0.16);
+      box-shadow: inset 3px 0 0 var(--brand-glow);
+    }
+
+    .beacon-item-top {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    .beacon-mac {
+      font-family: var(--font-mono);
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: inline-flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+    }
+
+    .beacon-last-time {
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      color: var(--text-muted);
+    }
+
+    .beacon-item-bottom {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .evt-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.73rem;
+      font-weight: 700;
+      padding: 0.16rem 0.52rem;
+      border-radius: 999px;
+      font-family: var(--font-mono);
+    }
+
+    .evt-badge.move {
+      background: var(--danger-bg);
+      border: 1px solid var(--danger-border);
+      color: var(--danger-text);
+    }
+
+    .evt-badge.ka {
+      background: var(--success-bg);
+      border: 1px solid var(--success-border);
+      color: var(--success-text);
+    }
+
+    .evt-badge.unk {
+      background: var(--info-bg);
+      border: 1px solid var(--info-border);
+      color: var(--info-text);
+    }
+
+    .evt-badge.total {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-strong);
+      color: var(--text-secondary);
+    }
+
+    .evt-badge.maint {
+      background: rgba(217, 119, 6, 0.22);
+      border: 1px solid rgba(245, 158, 11, 0.55);
+      color: #fde68a;
+      font-family: var(--font-mono);
+    }
+
+    .beacon-meta {
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+    }
+
+    .empty-state {
+      padding: 2.6rem 1.25rem;
+      text-align: center;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.65rem;
+    }
+
+    .empty-state svg {
+      color: var(--border-strong);
+    }
+
+    .empty-state p {
+      margin: 0;
+      font-size: 0.86rem;
+      max-width: 340px;
+    }
+
+    /* Painel de Histórico do Beacon Selecionado */
+    .detail-body {
+      padding: 1rem 1.15rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.9rem;
+    }
+
+    .detail-summary {
+      background: var(--bg-card-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 0.85rem 0.95rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+
+    .detail-summary-top {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    .filter-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
+    .filter-btn {
+      background: var(--bg-card-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      font-size: 0.76rem;
+      font-weight: 600;
+      padding: 0.3rem 0.68rem;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .filter-btn:hover {
+      border-color: var(--brand-bright);
+      color: var(--text-primary);
+    }
+
+    .filter-btn.active {
+      background: var(--brand);
+      border-color: var(--brand-glow);
+      color: #fffbeb;
+    }
+
+    .timeline-wrap {
+      max-height: 330px;
+      overflow-y: auto;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      background: var(--bg-input);
+    }
+
+    .timeline-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+
+    .timeline-table th {
+      position: sticky;
+      top: 0;
+      background: var(--bg-card-elevated);
+      color: var(--text-secondary);
+      font-size: 0.71rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      text-align: left;
+      padding: 0.55rem 0.75rem;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .timeline-table td {
+      padding: 0.52rem 0.75rem;
+      border-bottom: 1px solid rgba(46, 41, 37, 0.55);
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+      vertical-align: middle;
+    }
+
+    .timeline-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .timeline-table tbody tr:hover {
+      background: rgba(255, 255, 255, 0.025);
+    }
+
+    /* =========================================================
+       3. Monitor Serial Integrado
+       ========================================================= */
+    .terminal-card {
+      background: var(--bg-terminal);
+      border-color: var(--border-subtle);
+    }
+
+    .terminal-tools {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      flex-wrap: wrap;
+    }
+
+    .autoscroll-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.38rem;
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      cursor: pointer;
+      user-select: none;
+      padding: 0.28rem 0.55rem;
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .autoscroll-toggle input {
+      accent-color: var(--brand-bright);
+      cursor: pointer;
+    }
+
+    .terminal-output {
+      padding: 0.9rem 1.05rem;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      line-height: 1.56;
+      overflow-y: auto;
+      height: 230px;
+      background: var(--bg-terminal);
+      scroll-behavior: smooth;
+    }
+
+    .log-line {
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+      margin-bottom: 0.28rem;
+      word-break: break-word;
+    }
+
+    .log-time {
+      color: var(--text-muted);
+      font-size: 0.73rem;
+      flex-shrink: 0;
+      user-select: none;
+    }
+
+    .log-tag {
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 0.06rem 0.38rem;
+      border-radius: 4px;
+      flex-shrink: 0;
+      letter-spacing: 0.04em;
+      user-select: none;
+    }
+
+    .log-tag.tx  { background: rgba(146, 64, 14, 0.32); color: var(--term-tx);  border: 1px solid rgba(245, 158, 11, 0.45); }
+    .log-tag.rx  { background: rgba(16, 185, 129, 0.16); color: var(--term-rx);  border: 1px solid rgba(52, 211, 153, 0.35); }
+    .log-tag.sys { background: rgba(168, 162, 158, 0.12); color: var(--term-sys); border: 1px solid rgba(168, 162, 158, 0.28); }
+    .log-tag.err { background: rgba(239, 68, 68, 0.18); color: var(--term-err); border: 1px solid rgba(248, 113, 113, 0.38); }
+
+    .log-msg {
+      color: var(--text-primary);
+      white-space: pre-wrap;
+    }
+
+    .log-line.err .log-msg { color: #fca5a5; }
+    .log-line.sys .log-msg { color: #d6d3d1; }
+
+    .terminal-input-bar {
+      display: flex;
+      gap: 0.55rem;
+      padding: 0.75rem 1rem;
+      background: var(--bg-card-elevated);
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .terminal-input-bar input {
+      flex: 1;
+      background: var(--bg-terminal);
+      color: var(--text-primary);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.52rem 0.8rem;
+      font-family: var(--font-mono);
+      font-size: 0.83rem;
+      outline: none;
+    }
+
+    .terminal-input-bar input:focus {
+      border-color: var(--brand-bright);
+      box-shadow: 0 0 0 2px var(--brand-focus-ring);
+    }
+
+    .terminal-input-bar input:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    /* =========================================================
+       4. Drawer Lateral — Manutenção Programada (Oculto por Padrão)
+       ========================================================= */
+    .drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(3px);
+      z-index: 900;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.22s ease;
+    }
+
+    .drawer-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .drawer-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      height: 100vh;
+      width: min(460px, 100vw);
+      background: var(--bg-card);
+      border-left: 1px solid var(--border-strong);
+      box-shadow: -14px 0 40px rgba(0, 0, 0, 0.65);
+      z-index: 910;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .drawer-panel.open {
+      transform: translateX(0);
+    }
+
+    .drawer-header {
+      padding: 1rem 1.25rem;
+      background: var(--bg-card-elevated);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    .drawer-close-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .drawer-close-btn:hover {
+      background: #292420;
+      border-color: var(--brand-bright);
+      color: var(--text-primary);
+    }
+
+    .drawer-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.2rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.15rem;
+    }
+
+    .preview-banner {
+      background: var(--warning-bg);
+      border: 1px solid var(--warning-border);
+      color: var(--warning-text);
+      border-radius: var(--radius-md);
+      padding: 0.85rem 0.95rem;
+      font-size: 0.82rem;
+      line-height: 1.48;
+    }
+
+    .preview-banner strong {
+      display: block;
+      color: #fef3c7;
+      margin-bottom: 0.2rem;
+    }
+
+    .drawer-section {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .drawer-section-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Bloco 1: Lista interativa de Beacons no Drawer */
+    .maint-beacon-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      max-height: 215px;
+      overflow-y: auto;
+      padding: 0.45rem;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+    }
+
+    .maint-beacon-option {
+      width: 100%;
+      text-align: left;
+      background: var(--bg-card-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 0.65rem 0.8rem;
+      color: var(--text-primary);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      transition: border-color 0.15s ease, background-color 0.15s ease;
+    }
+
+    .maint-beacon-option:hover {
+      border-color: var(--brand-bright);
+    }
+
+    .maint-beacon-option.selected {
+      border-color: var(--brand-glow);
+      background: rgba(146, 64, 14, 0.2);
+      box-shadow: inset 3px 0 0 var(--brand-glow);
+    }
+
+    .maint-beacon-option-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+
+    .maint-beacon-option-sub {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      color: var(--text-secondary);
+    }
+
+    .maint-empty-hint {
+      padding: 1rem 0.75rem;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .manual-mac-toggle {
+      background: transparent;
+      border: none;
+      color: var(--brand-glow);
+      font-size: 0.76rem;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 0;
+      align-self: flex-start;
+    }
+
+    .manual-mac-toggle:hover {
+      text-decoration: underline;
+    }
+
+    .input-dark {
+      width: 100%;
+      padding: 0.6rem 0.8rem;
+      font-size: 0.88rem;
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      outline: none;
+    }
+
+    .input-dark:focus {
+      border-color: var(--brand-bright);
+      box-shadow: 0 0 0 3px var(--brand-focus-ring);
+    }
+
+    /* Bloco 2: Tempo de Manutenção */
+    .duration-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.6rem;
+    }
+
+    .select-dark {
+      width: 100%;
+      padding: 0.6rem 0.8rem;
+      font-size: 0.88rem;
+      font-family: var(--font-sans);
+      color: var(--text-primary);
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      outline: none;
+      cursor: pointer;
+    }
+
+    .select-dark:focus {
+      border-color: var(--brand-bright);
+      box-shadow: 0 0 0 3px var(--brand-focus-ring);
+    }
+
+    .select-dark option {
+      background: var(--bg-card-elevated);
+      color: var(--text-primary);
+    }
+
+    .quick-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
+    .chip-btn {
+      background: var(--bg-card-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.28rem 0.65rem;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .chip-btn:hover {
+      border-color: var(--brand-glow);
+      color: #fde68a;
+    }
+
+    .duration-seconds-hint {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--brand-glow);
+      background: rgba(146, 64, 14, 0.14);
+      border: 1px solid rgba(146, 64, 14, 0.35);
+      border-radius: var(--radius-sm);
+      padding: 0.45rem 0.7rem;
+    }
+
+    /* Bloco 3: Preview JSON + Botão Enviar */
+    .code-box {
+      margin: 0;
+      padding: 0.7rem 0.8rem;
+      background: var(--bg-terminal);
+      color: #e7e5e4;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      overflow-x: auto;
+      line-height: 1.48;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .btn-send-full {
+      width: 100%;
+      min-height: 44px;
+      font-size: 0.9rem;
+    }
+
+    /* Scrollbars discretas */
+    .beacon-list::-webkit-scrollbar,
+    .timeline-wrap::-webkit-scrollbar,
+    .terminal-output::-webkit-scrollbar,
+    .drawer-body::-webkit-scrollbar,
+    .maint-beacon-list::-webkit-scrollbar {
+      width: 7px;
+      height: 7px;
+    }
+    .beacon-list::-webkit-scrollbar-track,
+    .timeline-wrap::-webkit-scrollbar-track,
+    .terminal-output::-webkit-scrollbar-track,
+    .drawer-body::-webkit-scrollbar-track,
+    .maint-beacon-list::-webkit-scrollbar-track {
+      background: #0c0a09;
+    }
+    .beacon-list::-webkit-scrollbar-thumb,
+    .timeline-wrap::-webkit-scrollbar-thumb,
+    .terminal-output::-webkit-scrollbar-thumb,
+    .drawer-body::-webkit-scrollbar-thumb,
+    .maint-beacon-list::-webkit-scrollbar-thumb {
+      background: #2e2925;
+      border-radius: 4px;
+    }
+    .beacon-list::-webkit-scrollbar-thumb:hover,
+    .timeline-wrap::-webkit-scrollbar-thumb:hover,
+    .terminal-output::-webkit-scrollbar-thumb:hover,
+    .drawer-body::-webkit-scrollbar-thumb:hover,
+    .maint-beacon-list::-webkit-scrollbar-thumb:hover {
+      background: var(--brand);
+    }
+
+    /* Toasts */
+    .toast-container {
+      position: fixed;
+      bottom: 1.25rem;
+      right: 1.25rem;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+      max-width: 370px;
+      width: calc(100vw - 2.5rem);
+      pointer-events: none;
+    }
+
+    .toast {
+      pointer-events: auto;
+      background: var(--bg-card-elevated);
+      color: var(--text-primary);
+      padding: 0.8rem 1rem;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-strong);
+      border-left: 4px solid var(--brand-bright);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+      font-size: 0.84rem;
+      animation: slideIn 0.2s ease-out;
+    }
+
+    .toast.success { border-left-color: var(--success); }
+    .toast.error   { border-left-color: var(--danger); }
+    .toast.warning { border-left-color: var(--brand-glow); }
+
+    @keyframes slideIn {
+      from { transform: translateY(12px); opacity: 0; }
+      to   { transform: translateY(0); opacity: 1; }
+    }
+
+    .footer-note {
+      text-align: center;
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      padding-bottom: 0.4rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Cabeçalho e Controles de Conexão USB Serial -->
+    <header class="topbar">
+      <div class="topbar-row">
+        <div class="brand">
+          <div class="brand-icon" aria-hidden="true">
+            <!-- Escudo geométrico com engrenagem centralizada -->
+            <svg width="26" height="26" viewBox="0 0 64 64" fill="none">
+              <path d="M32 6L11 14v17.2c0 14 8.8 25.8 21 29.3 12.2-3.5 21-15.3 21-29.3V14L32 6z" fill="rgba(217, 119, 6, 0.18)" stroke="#fef3c7" stroke-width="3.6" stroke-linejoin="round"/>
+              <g transform="translate(32 32)" fill="#f59e0b">
+                <circle r="7.5" fill="none" stroke="#f59e0b" stroke-width="3.8"/>
+                <rect x="-2.2" y="-13" width="4.4" height="4.5" rx="1"/>
+                <rect x="-2.2" y="8.5" width="4.4" height="4.5" rx="1"/>
+                <rect x="-13" y="-2.2" width="4.5" height="4.4" rx="1"/>
+                <rect x="8.5" y="-2.2" width="4.5" height="4.4" rx="1"/>
+                <rect x="-2.2" y="-13" width="4.4" height="4.5" rx="1" transform="rotate(45)"/>
+                <rect x="-2.2" y="8.5" width="4.4" height="4.5" rx="1" transform="rotate(45)"/>
+                <rect x="-13" y="-2.2" width="4.5" height="4.4" rx="1" transform="rotate(45)"/>
+                <rect x="8.5" y="-2.2" width="4.5" height="4.4" rx="1" transform="rotate(45)"/>
+              </g>
+            </svg>
+          </div>
+          <div>
+            <h1>Guardião Cultural</h1>
+            <p>Debug &amp; Monitor de Gateway BLE (USB Serial)</p>
+          </div>
+        </div>
+
+        <div class="serial-controls">
+          <div id="statusBadge" class="status-badge" role="status" aria-live="polite">
+            <span class="status-dot"></span>
+            <span id="statusText">Desconectado</span>
+          </div>
+
+          <div class="baud-group">
+            <label for="baudRate">Baud</label>
+            <select id="baudRate" aria-label="Selecionar Baud Rate">
+              <option value="9600">9600</option>
+              <option value="115200" selected>115200</option>
+              <option value="921600">921600</option>
+            </select>
+          </div>
+
+          <button id="btnConnect" type="button" class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2v13"/><path d="m8 6 4-4 4 4"/><circle cx="12" cy="19" r="3"/>
+              <path d="M6 12v1a6 6 0 0 0 6 6"/><path d="M18 10v3a6 6 0 0 1-6 6"/>
+            </svg>
+            <span id="btnConnectLabel">Conectar USB Serial</span>
+          </button>
+
+          <!-- Botão destacado no cabeçalho para abrir a aba oculta de Manutenção Programada -->
+          <button id="btnOpenMaintenance" type="button" class="btn btn-ghost-amber" aria-haspopup="dialog" aria-controls="maintenanceDrawer">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.85 1 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+            Manutenção Programada
+          </button>
+        </div>
+      </div>
+
+      <!-- Barra de Simulação Discreta (para testar sem hardware conectado) -->
+      <div class="subbar">
+        <div class="sim-group" aria-label="Simulador de testes sem ESP32">
+          <span class="sim-label">Simulador:</span>
+          <button id="btnSimMove" type="button" class="btn btn-sim-move btn-sm">
+            Simular Movimento (0x02)
+          </button>
+          <button id="btnSimKa" type="button" class="btn btn-sim-ka btn-sm">
+            Simular Keep-Alive (0x01)
+          </button>
+          <button id="btnSimOther" type="button" class="btn btn-secondary btn-sm">
+            Simular Outro Beacon
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Banner de aviso caso Web Serial API não seja suportada -->
+    <div id="unsupportedBanner" class="alert-banner" role="alert">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+      <div>
+        <strong>Navegador sem suporte à Web Serial API</strong>
+        Use <b>Google Chrome</b> ou <b>Microsoft Edge</b> em desktop sob <b>HTTPS</b> ou <b>localhost</b> para conectar ao ESP32. Você ainda pode testar a interface usando os botões do <b>Simulador</b> acima.
+      </div>
+    </div>
+
+    <!-- 2. Indicador Luminoso em Tempo Real + Contadores Rápidos -->
+    <section class="hero-grid" aria-label="Indicador de leitura em tempo real e contadores">
+      <div id="lampCard" class="beacon-lamp-card">
+        <div class="lamp-top">
+          <div id="lampOrb" class="lamp-orb" aria-hidden="true">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="2"/>
+              <path d="M16.24 7.76a6 6 0 0 1 0 8.49"/>
+              <path d="M7.76 16.24a6 6 0 0 1 0-8.49"/>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+              <path d="M4.93 19.07a10 10 0 0 1 0-14.14"/>
+            </svg>
+          </div>
+
+          <div class="lamp-headline">
+            <div id="lampEyebrow" class="lamp-eyebrow">Indicador de Recepção BLE</div>
+            <h2 id="lampTitle" class="lamp-title">Aguardando leitura de beacon...</h2>
+            <p id="lampSub" class="lamp-sub">O painel acende automaticamente ao receber um pacote do gateway ESP32.</p>
+          </div>
+        </div>
+
+        <div class="lamp-details">
+          <div class="lamp-stat">
+            <span class="lamp-stat-label">MAC do Beacon</span>
+            <span id="lastMac" class="lamp-stat-value">—</span>
+          </div>
+          <div class="lamp-stat">
+            <span class="lamp-stat-label">RSSI / Sinal</span>
+            <span id="lastRssi" class="lamp-stat-value">—</span>
+          </div>
+          <div class="lamp-stat">
+            <span class="lamp-stat-label">Bateria</span>
+            <span id="lastBattery" class="lamp-stat-value">—</span>
+          </div>
+          <div class="lamp-stat">
+            <span class="lamp-stat-label">Horário Exato</span>
+            <span id="lastTime" class="lamp-stat-value">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-top">
+            <span class="metric-label">Total de Leituras</span>
+            <span class="metric-dot" style="background: var(--text-secondary);"></span>
+          </div>
+          <div id="metricTotal" class="metric-value">0</div>
+          <span class="metric-sub">Pacotes decodificados</span>
+        </div>
+
+        <div class="metric-card m-uniq">
+          <div class="metric-top">
+            <span class="metric-label">Beacons Únicos</span>
+            <span class="metric-dot" style="background: var(--brand-glow);"></span>
+          </div>
+          <div id="metricUnique" class="metric-value">0</div>
+          <span class="metric-sub">Endereços MAC distintos</span>
+        </div>
+
+        <div class="metric-card m-move">
+          <div class="metric-top">
+            <span class="metric-label">Movimento (0x02)</span>
+            <span class="metric-dot" style="background: var(--danger);"></span>
+          </div>
+          <div id="metricMove" class="metric-value">0</div>
+          <span class="metric-sub">Eventos de deslocamento</span>
+        </div>
+
+        <div class="metric-card m-ka">
+          <div class="metric-top">
+            <span class="metric-label">Keep-Alive (0x01)</span>
+            <span class="metric-dot" style="background: var(--success);"></span>
+          </div>
+          <div id="metricKa" class="metric-value">0</div>
+          <span class="metric-sub">Telemetria de status</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Lista de Beacons Lidos + Inspeção de Momentos -->
+    <section class="beacons-grid" aria-label="Lista de beacons e inspeção de momentos">
+      <!-- Coluna Esquerda: Lista de Beacons -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title-group">
+            <div class="card-icon" aria-hidden="true">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+                <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+              </svg>
+            </div>
+            <div>
+              <h2 class="card-title">Beacons Lidos</h2>
+              <p class="card-subtitle">Clique em um beacon para ver os momentos de cada evento</p>
+            </div>
+          </div>
+
+          <button id="btnClearBeacons" type="button" class="btn btn-secondary btn-sm">
+            Limpar lista
+          </button>
+        </div>
+
+        <div id="beaconList" class="beacon-list">
+          <div class="empty-state">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="2"/>
+              <path d="M16.24 7.76a6 6 0 0 1 0 8.49"/><path d="M7.76 16.24a6 6 0 0 1 0-8.49"/>
+            </svg>
+            <p>Nenhum beacon lido ainda. Conecte o gateway ESP32 ou clique em um botão do <b>Simulador</b> para testar.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Coluna Direita: Detalhes e Momentos do Beacon Selecionado -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title-group">
+            <div class="card-icon" aria-hidden="true">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+            </div>
+            <div>
+              <h2 class="card-title">Detalhes e Momentos do Beacon</h2>
+              <p class="card-subtitle">Linha do tempo cronológica com data, hora e milissegundos</p>
+            </div>
+          </div>
+        </div>
+
+        <div id="beaconDetailContainer" class="detail-body">
+          <div class="empty-state">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+            <p>Selecione um beacon na lista ao lado para visualizar o momento exato de cada leitura, RSSI e bateria.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Monitor Serial Integrado -->
+    <section class="card terminal-card" aria-labelledby="terminalTitle">
+      <div class="card-header">
+        <div class="card-title-group">
+          <div class="card-icon" aria-hidden="true">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
+            </svg>
+          </div>
+          <div>
+            <h2 id="terminalTitle" class="card-title">Monitor Serial</h2>
+            <p class="card-subtitle">Logs da porta USB Serial em tempo real</p>
+          </div>
+        </div>
+
+        <div class="terminal-tools">
+          <label class="autoscroll-toggle">
+            <input id="chkAutoScroll" type="checkbox" checked>
+            Auto-scroll
+          </label>
+          <button id="btnClearLog" type="button" class="btn btn-secondary btn-sm">
+            Limpar
+          </button>
+        </div>
+      </div>
+
+      <div id="terminalOutput" class="terminal-output" role="log" aria-live="polite" aria-label="Saída do monitor serial"></div>
+
+      <form id="manualCmdForm" class="terminal-input-bar">
+        <input
+          id="manualCmdInput"
+          type="text"
+          placeholder='Comando manual pela Serial (ex: {"cmd":"get_config"}) e pressione Enter'
+          autocomplete="off"
+          spellcheck="false"
+          disabled
+        >
+        <button id="btnSendManual" type="submit" class="btn btn-primary btn-sm" disabled>
+          Enviar
+        </button>
+      </form>
+    </section>
+
+    <footer class="footer-note">
+      Guardião Cultural &bull; Debug &amp; Monitor de Gateway BLE (USB Serial) &bull; Web Serial API
+    </footer>
+  </div>
+
+  <!-- 4. Aba / Drawer Lateral de Manutenção Programada (OCULTO POR PADRÃO) -->
+  <div id="drawerBackdrop" class="drawer-backdrop" aria-hidden="true"></div>
+  <aside id="maintenanceDrawer" class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="drawerTitle" aria-hidden="true">
+    <div class="drawer-header">
+      <div class="card-title-group">
+        <div class="card-icon" aria-hidden="true">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.85 1 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </div>
+        <div>
+          <h2 id="drawerTitle" class="card-title">Manutenção Programada</h2>
+          <p class="card-subtitle">Preview de protocolo &bull; Modo de suspensão do beacon</p>
+        </div>
+      </div>
+
+      <button id="btnCloseMaintenance" type="button" class="drawer-close-btn" aria-label="Fechar painel (ESC)" title="Fechar (ESC)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <form id="maintenanceForm" class="drawer-body" novalidate>
+      <div class="preview-banner">
+        <strong>Modo de Manutenção Programada (Em desenvolvimento)</strong>
+        Neste modo, o dispositivo beacon <b>não envia eventos de movimentação</b> durante o período configurado.
+      </div>
+
+      <!-- Bloco 1: Lista de Beacons -->
+      <div class="drawer-section">
+        <div class="drawer-section-label">
+          <span>1. Lista de Beacons</span>
+          <span id="maintCountLabel" style="font-family: var(--font-mono); color: var(--brand-glow);">0 lidos</span>
+        </div>
+
+        <div id="maintBeaconList" class="maint-beacon-list" role="listbox" aria-label="Selecionar beacon para manutenção">
+          <div class="maint-empty-hint">Nenhum beacon lido nesta sessão ainda.</div>
+        </div>
+
+        <button id="btnToggleManualMac" type="button" class="manual-mac-toggle">
+          + Digitar endereço MAC manualmente
+        </button>
+
+        <input
+          id="maintManualMac"
+          type="text"
+          class="input-dark"
+          placeholder="AA:BB:CC:DD:EE:FF"
+          autocomplete="off"
+          spellcheck="false"
+          style="display: none;"
+        >
+      </div>
+
+      <!-- Bloco 2: Tempo de Manutenção -->
+      <div class="drawer-section">
+        <div class="drawer-section-label">
+          <span>2. Tempo de Manutenção</span>
+        </div>
+
+        <div class="duration-row">
+          <input id="maintDurationValue" type="number" min="1" step="1" value="1" class="input-dark" aria-label="Valor do tempo de manutenção">
+          <select id="maintDurationUnit" class="select-dark" aria-label="Unidade de tempo">
+            <option value="minutes">Minutos</option>
+            <option value="hours" selected>Horas</option>
+          </select>
+        </div>
+
+        <div class="quick-chips" aria-label="Atalhos rápidos de tempo">
+          <button type="button" class="chip-btn" data-val="30" data-unit="minutes">30 min</button>
+          <button type="button" class="chip-btn" data-val="1" data-unit="hours">1h</button>
+          <button type="button" class="chip-btn" data-val="2" data-unit="hours">2h</button>
+          <button type="button" class="chip-btn" data-val="6" data-unit="hours">6h</button>
+          <button type="button" class="chip-btn" data-val="12" data-unit="hours">12h</button>
+          <button type="button" class="chip-btn" data-val="24" data-unit="hours">24h</button>
+        </div>
+
+        <div id="maintSecondsDisplay" class="duration-seconds-hint">
+          Equivalente a transmitir: 3600s
+        </div>
+      </div>
+
+      <!-- Bloco 3: Preview JSON + Botão para Enviar -->
+      <div class="drawer-section">
+        <div class="drawer-section-label">
+          <span>3. Envio pela Serial</span>
+        </div>
+
+        <pre id="maintJsonPreview" class="code-box">{}</pre>
+
+        <button id="btnSubmitMaintenance" type="submit" class="btn btn-primary btn-send-full">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+          Enviar Manutenção Programada
+        </button>
+      </div>
+    </form>
+  </aside>
+
+  <!-- Container de Notificações Toast -->
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // =========================================================
+      // Estado da Aplicação
+      // =========================================================
+      const state = {
+        port: null,
+        reader: null,
+        isConnected: false,
+        isClosing: false,
+        readBuffer: '',
+
+        // Mapa de beacons indexado por MAC em maiúsculas
+        // { mac, lastRssi, lastBattery, lastTimestamp, total, moveCount, kaCount, maintCount, unknownCount, events: [], maintenanceUntil: number|null }
+        beacons: new Map(),
+        selectedMac: null,
+        detailFilter: 'all', // 'all' | 'movement' | 'keepalive'
+
+        // Seleção no Drawer de Manutenção
+        maintSelectedMac: null,
+        maintManualMode: false,
+
+        // Métricas globais
+        totalEvents: 0,
+        totalMove: 0,
+        totalKa: 0,
+
+        // Timer de suavização do indicador luminoso (~3s)
+        lampTimeoutId: null,
+        simCounter: 0
+      };
+
+      const PRIMARY_SIM_MAC = 'AA:BB:CC:11:22:01';
+
+      // =========================================================
+      // Referências de DOM
+      // =========================================================
+      const els = {
+        unsupportedBanner: document.getElementById('unsupportedBanner'),
+        statusBadge: document.getElementById('statusBadge'),
+        statusText: document.getElementById('statusText'),
+        baudRate: document.getElementById('baudRate'),
+        btnConnect: document.getElementById('btnConnect'),
+        btnConnectLabel: document.getElementById('btnConnectLabel'),
+        btnOpenMaintenance: document.getElementById('btnOpenMaintenance'),
+
+        btnSimMove: document.getElementById('btnSimMove'),
+        btnSimKa: document.getElementById('btnSimKa'),
+        btnSimOther: document.getElementById('btnSimOther'),
+
+        // Indicador luminoso
+        lampCard: document.getElementById('lampCard'),
+        lampOrb: document.getElementById('lampOrb'),
+        lampEyebrow: document.getElementById('lampEyebrow'),
+        lampTitle: document.getElementById('lampTitle'),
+        lampSub: document.getElementById('lampSub'),
+        lastMac: document.getElementById('lastMac'),
+        lastRssi: document.getElementById('lastRssi'),
+        lastBattery: document.getElementById('lastBattery'),
+        lastTime: document.getElementById('lastTime'),
+
+        // Métricas
+        metricTotal: document.getElementById('metricTotal'),
+        metricUnique: document.getElementById('metricUnique'),
+        metricMove: document.getElementById('metricMove'),
+        metricKa: document.getElementById('metricKa'),
+
+        // Lista e Detalhe
+        beaconList: document.getElementById('beaconList'),
+        btnClearBeacons: document.getElementById('btnClearBeacons'),
+        beaconDetailContainer: document.getElementById('beaconDetailContainer'),
+
+        // Monitor Serial
+        terminalOutput: document.getElementById('terminalOutput'),
+        chkAutoScroll: document.getElementById('chkAutoScroll'),
+        btnClearLog: document.getElementById('btnClearLog'),
+        manualCmdForm: document.getElementById('manualCmdForm'),
+        manualCmdInput: document.getElementById('manualCmdInput'),
+        btnSendManual: document.getElementById('btnSendManual'),
+
+        // Drawer de Manutenção
+        drawerBackdrop: document.getElementById('drawerBackdrop'),
+        maintenanceDrawer: document.getElementById('maintenanceDrawer'),
+        btnCloseMaintenance: document.getElementById('btnCloseMaintenance'),
+        maintenanceForm: document.getElementById('maintenanceForm'),
+        maintCountLabel: document.getElementById('maintCountLabel'),
+        maintBeaconList: document.getElementById('maintBeaconList'),
+        btnToggleManualMac: document.getElementById('btnToggleManualMac'),
+        maintManualMac: document.getElementById('maintManualMac'),
+        maintDurationValue: document.getElementById('maintDurationValue'),
+        maintDurationUnit: document.getElementById('maintDurationUnit'),
+        maintSecondsDisplay: document.getElementById('maintSecondsDisplay'),
+        maintJsonPreview: document.getElementById('maintJsonPreview'),
+
+        toastContainer: document.getElementById('toastContainer')
+      };
+
+      // =========================================================
+      // Utilitários de Formatação e UI
+      // =========================================================
+      function formatTimeMs(date) {
+        const hh = String(date.getHours()).padStart(2, '0');
+        const mm = String(date.getMinutes()).padStart(2, '0');
+        const ss = String(date.getSeconds()).padStart(2, '0');
+        const ms = String(date.getMilliseconds()).padStart(3, '0');
+        return `${hh}:${mm}:${ss}.${ms}`;
+      }
+
+      function formatDateTimeMs(date) {
+        const dd = String(date.getDate()).padStart(2, '0');
+        const mo = String(date.getMonth() + 1).padStart(2, '0');
+        const yyyy = date.getFullYear();
+        return `${dd}/${mo}/${yyyy} ${formatTimeMs(date)}`;
+      }
+
+      function formatRemaining(untilMs) {
+        if (!untilMs) return null;
+        const diffSec = Math.max(0, Math.floor((untilMs - Date.now()) / 1000));
+        if (diffSec <= 0) return null;
+        const h = Math.floor(diffSec / 3600);
+        const m = Math.floor((diffSec % 3600) / 60);
+        const s = diffSec % 60;
+        if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m`;
+        if (m > 0) return `${m}m ${String(s).padStart(2, '0')}s`;
+        return `${s}s`;
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+        els.toastContainer.appendChild(toast);
+
+        setTimeout(() => {
+          toast.style.opacity = '0';
+          toast.style.transform = 'translateY(8px)';
+          toast.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+          setTimeout(() => toast.remove(), 220);
+        }, 3500);
+      }
+
+      function appendLog(type, message) {
+        const line = document.createElement('div');
+        line.className = `log-line ${type}`;
+
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'log-time';
+        timeSpan.textContent = `[${formatTimeMs(new Date())}]`;
+
+        const tagSpan = document.createElement('span');
+        tagSpan.className = `log-tag ${type}`;
+        tagSpan.textContent = type.toUpperCase();
+
+        const msgSpan = document.createElement('span');
+        msgSpan.className = 'log-msg';
+        msgSpan.textContent = message;
+
+        line.appendChild(timeSpan);
+        line.appendChild(tagSpan);
+        line.appendChild(msgSpan);
+        els.terminalOutput.appendChild(line);
+
+        while (els.terminalOutput.children.length > 600) {
+          els.terminalOutput.removeChild(els.terminalOutput.firstChild);
+        }
+
+        if (els.chkAutoScroll.checked) {
+          els.terminalOutput.scrollTop = els.terminalOutput.scrollHeight;
+        }
+      }
+
+      function renderRssiHtml(rssi) {
+        if (typeof rssi !== 'number' || Number.isNaN(rssi)) return '—';
+        let level = 1;
+        let cls = 'on-weak';
+        if (rssi >= -60) { level = 4; cls = 'on-good'; }
+        else if (rssi >= -72) { level = 3; cls = 'on-good'; }
+        else if (rssi >= -84) { level = 2; cls = 'on-mid'; }
+
+        let bars = '<span class="rssi-bars" title="Qualidade do sinal">';
+        for (let i = 1; i <= 4; i++) {
+          bars += `<span class="rssi-bar ${i <= level ? cls : ''}"></span>`;
+        }
+        bars += '</span>';
+        return `${rssi} dBm ${bars}`;
+      }
+
+      // =========================================================
+      // 1. Indicador Luminoso em Tempo Real
+      // =========================================================
+      function triggerLamp(reading) {
+        if (state.lampTimeoutId) {
+          clearTimeout(state.lampTimeoutId);
+          state.lampTimeoutId = null;
+        }
+
+        els.lampCard.classList.remove(
+          'flash-movement', 'flash-keepalive', 'flash-maintenance', 'flash-unknown',
+          'idle-movement', 'idle-keepalive', 'idle-maintenance', 'idle-unknown'
+        );
+
+        let flashCls = 'flash-unknown';
+        let idleCls = 'idle-unknown';
+        let titleText = `MODO DESCONHECIDO (${reading.codeHex})`;
+        let subText = 'Pacote recebido com código de evento não mapeado.';
+        let orbIcon = `
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>`;
+
+        if (reading.mode === 'movement') {
+          flashCls = 'flash-movement';
+          idleCls = 'idle-movement';
+          titleText = 'MOVIMENTO DETECTADO (0x02)';
+          subText = 'Alerta de deslocamento recebido do beacon BLE.';
+          orbIcon = `
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>`;
+        } else if (reading.mode === 'keepalive') {
+          flashCls = 'flash-keepalive';
+          idleCls = 'idle-keepalive';
+          titleText = 'KEEP-ALIVE / STATUS (0x01)';
+          subText = 'Telemetria periódica recebida normalmente.';
+          orbIcon = `
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>`;
+        } else if (reading.mode === 'maintenance') {
+          flashCls = 'flash-maintenance';
+          idleCls = 'idle-maintenance';
+          titleText = 'MANUTENÇÃO PROGRAMADA (0x03)';
+          subText = 'Beacon operando em modo de manutenção (movimento suspenso).';
+          orbIcon = `
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.85 1 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>`;
+        }
+
+        void els.lampCard.offsetWidth;
+        els.lampCard.classList.add(flashCls);
+        els.lampOrb.innerHTML = orbIcon;
+        els.lampEyebrow.textContent = 'Leitura Recebida Agora';
+        els.lampTitle.textContent = titleText;
+        els.lampSub.textContent = subText;
+
+        els.lastMac.textContent = reading.mac;
+        els.lastRssi.innerHTML = renderRssiHtml(reading.rssi);
+        els.lastBattery.textContent = reading.battery !== null ? `${reading.battery}%` : '—';
+        els.lastTime.textContent = formatTimeMs(reading.timestamp);
+
+        state.lampTimeoutId = setTimeout(() => {
+          els.lampCard.classList.remove(flashCls);
+          els.lampCard.classList.add(idleCls);
+          els.lampEyebrow.textContent = 'Última Leitura';
+        }, 3000);
+      }
+
+      // =========================================================
+      // 2. Registro de Eventos e Renderização da Lista / Detalhes
+      // =========================================================
+      function registerBeaconEvent(reading) {
+        const mac = reading.mac.toUpperCase();
+        reading.mac = mac;
+
+        let beacon = state.beacons.get(mac);
+        if (!beacon) {
+          beacon = {
+            mac,
+            lastRssi: null,
+            lastBattery: null,
+            lastTimestamp: reading.timestamp,
+            total: 0,
+            moveCount: 0,
+            kaCount: 0,
+            maintCount: 0,
+            unknownCount: 0,
+            events: [],
+            maintenanceUntil: null
+          };
+          state.beacons.set(mac, beacon);
+        }
+
+        beacon.lastRssi = reading.rssi;
+        beacon.lastBattery = reading.battery;
+        beacon.lastTimestamp = reading.timestamp;
+        beacon.total += 1;
+
+        if (reading.mode === 'movement') {
+          beacon.moveCount += 1;
+          state.totalMove += 1;
+        } else if (reading.mode === 'keepalive') {
+          beacon.kaCount += 1;
+          state.totalKa += 1;
+        } else if (reading.mode === 'maintenance') {
+          beacon.maintCount += 1;
+        } else {
+          beacon.unknownCount += 1;
+        }
+
+        state.totalEvents += 1;
+        beacon.events.unshift(reading);
+        if (beacon.events.length > 300) beacon.events.pop();
+
+        triggerLamp(reading);
+        renderMetrics();
+        renderBeaconList();
+        if (state.selectedMac === mac) renderBeaconDetail();
+        if (els.maintenanceDrawer.classList.contains('open')) renderMaintenanceBeaconList();
+      }
+
+      function renderMetrics() {
+        els.metricTotal.textContent = String(state.totalEvents);
+        els.metricUnique.textContent = String(state.beacons.size);
+        els.metricMove.textContent = String(state.totalMove);
+        els.metricKa.textContent = String(state.totalKa);
+      }
+
+      function renderBeaconList() {
+        if (state.beacons.size === 0) {
+          els.beaconList.innerHTML = `
+            <div class="empty-state">
+              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="2"/>
+                <path d="M16.24 7.76a6 6 0 0 1 0 8.49"/><path d="M7.76 16.24a6 6 0 0 1 0-8.49"/>
+              </svg>
+              <p>Nenhum beacon lido ainda. Conecte o gateway ESP32 ou clique em um botão do <b>Simulador</b> para testar.</p>
+            </div>`;
+          return;
+        }
+
+        const sorted = Array.from(state.beacons.values()).sort(
+          (a, b) => b.lastTimestamp.getTime() - a.lastTimestamp.getTime()
+        );
+
+        els.beaconList.innerHTML = sorted.map((b) => {
+          const isSelected = b.mac === state.selectedMac;
+          const rem = formatRemaining(b.maintenanceUntil);
+          const maintBadge = rem
+            ? `<span class="evt-badge maint">Manutenção Programada (${rem})</span>`
+            : '';
+
+          return `
+            <button type="button" class="beacon-item ${isSelected ? 'selected' : ''}" data-mac="${escapeHtml(b.mac)}">
+              <div class="beacon-item-top">
+                <span class="beacon-mac">
+                  ${escapeHtml(b.mac)}
+                  ${maintBadge}
+                </span>
+                <span class="beacon-last-time">Última: ${formatTimeMs(b.lastTimestamp)}</span>
+              </div>
+              <div class="beacon-item-bottom">
+                <div class="badge-row">
+                  <span class="evt-badge move">Mov: ${b.moveCount}</span>
+                  <span class="evt-badge ka">KA: ${b.kaCount}</span>
+                  <span class="evt-badge total">Total: ${b.total}</span>
+                </div>
+                <div class="beacon-meta">
+                  <span>${b.lastRssi !== null ? b.lastRssi + ' dBm' : '—'}</span>
+                  <span>Bat: ${b.lastBattery !== null ? b.lastBattery + '%' : '—'}</span>
+                </div>
+              </div>
+            </button>`;
+        }).join('');
+
+        els.beaconList.querySelectorAll('.beacon-item').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            state.selectedMac = btn.getAttribute('data-mac');
+            state.detailFilter = 'all';
+            renderBeaconList();
+            renderBeaconDetail();
+          });
+        });
+      }
+
+      function renderBeaconDetail() {
+        const beacon = state.selectedMac ? state.beacons.get(state.selectedMac) : null;
+        if (!beacon) {
+          els.beaconDetailContainer.innerHTML = `
+            <div class="empty-state">
+              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+              </svg>
+              <p>Selecione um beacon na lista ao lado para visualizar o momento exato de cada leitura, RSSI e bateria.</p>
+            </div>`;
+          return;
+        }
+
+        const filtered = beacon.events.filter((ev) => {
+          if (state.detailFilter === 'movement') return ev.mode === 'movement';
+          if (state.detailFilter === 'keepalive') return ev.mode === 'keepalive';
+          return true;
+        });
+
+        const rowsHtml = filtered.length > 0
+          ? filtered.map((ev) => {
+              let modeBadge = `<span class="evt-badge unk">${escapeHtml(ev.codeHex)}</span>`;
+              if (ev.mode === 'movement') modeBadge = `<span class="evt-badge move">Movimento (0x02)</span>`;
+              else if (ev.mode === 'keepalive') modeBadge = `<span class="evt-badge ka">Keep-Alive (0x01)</span>`;
+              else if (ev.mode === 'maintenance') modeBadge = `<span class="evt-badge maint">Manutenção (0x03)</span>`;
+
+              return `
+                <tr>
+                  <td>${formatDateTimeMs(ev.timestamp)}</td>
+                  <td>${modeBadge}</td>
+                  <td>${ev.rssi !== null ? ev.rssi + ' dBm' : '—'}</td>
+                  <td>${ev.battery !== null ? ev.battery + '%' : '—'}</td>
+                </tr>`;
+            }).join('')
+          : `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:1.4rem;">Nenhum evento para este filtro.</td></tr>`;
+
+        const rem = formatRemaining(beacon.maintenanceUntil);
+        const maintInfo = rem
+          ? `<span class="evt-badge maint">Manutenção Programada (${rem})</span>`
+          : '';
+
+        els.beaconDetailContainer.innerHTML = `
+          <div class="detail-summary">
+            <div class="detail-summary-top">
+              <span class="beacon-mac">${escapeHtml(beacon.mac)}</span>
+              ${maintInfo}
+            </div>
+            <div class="beacon-item-bottom">
+              <div class="badge-row">
+                <span class="evt-badge total">Total: ${beacon.total}</span>
+                <span class="evt-badge move">Movimento: ${beacon.moveCount}</span>
+                <span class="evt-badge ka">Keep-Alive: ${beacon.kaCount}</span>
+              </div>
+              <div class="beacon-meta">
+                <span>RSSI: ${beacon.lastRssi !== null ? beacon.lastRssi + ' dBm' : '—'}</span>
+                <span>Bat: ${beacon.lastBattery !== null ? beacon.lastBattery + '%' : '—'}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="filter-pills" role="group" aria-label="Filtrar eventos">
+            <button type="button" class="filter-btn ${state.detailFilter === 'all' ? 'active' : ''}" data-filter="all">Todos (${beacon.total})</button>
+            <button type="button" class="filter-btn ${state.detailFilter === 'movement' ? 'active' : ''}" data-filter="movement">Movimento (0x02) (${beacon.moveCount})</button>
+            <button type="button" class="filter-btn ${state.detailFilter === 'keepalive' ? 'active' : ''}" data-filter="keepalive">Keep-Alive (0x01) (${beacon.kaCount})</button>
+          </div>
+
+          <div class="timeline-wrap">
+            <table class="timeline-table">
+              <thead>
+                <tr>
+                  <th>Momento (Data / Hora)</th>
+                  <th>Transmissão</th>
+                  <th>RSSI</th>
+                  <th>Bateria</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+          </div>`;
+
+        els.beaconDetailContainer.querySelectorAll('.filter-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            state.detailFilter = btn.getAttribute('data-filter');
+            renderBeaconDetail();
+          });
+        });
+      }
+
+      // =========================================================
+      // 3. Parser Dual (Texto ESP32 + JSON + ACK de Manutenção)
+      // =========================================================
+      function normalizeEventMode(raw) {
+        if (typeof raw === 'number') {
+          if (raw === 2) return { mode: 'movement', codeHex: '0x02' };
+          if (raw === 1) return { mode: 'keepalive', codeHex: '0x01' };
+          if (raw === 3) return { mode: 'maintenance', codeHex: '0x03' };
+          return { mode: 'unknown', codeHex: '0x' + raw.toString(16).padStart(2, '0').toUpperCase() };
+        }
+        const s = String(raw || '').trim().toLowerCase();
+        if (s === '2' || s === '0x2' || s === '0x02' || s.includes('mov')) {
+          return { mode: 'movement', codeHex: '0x02' };
+        }
+        if (s === '1' || s === '0x1' || s === '0x01' || s.includes('keep') || s.includes('status') || s === 'ka') {
+          return { mode: 'keepalive', codeHex: '0x01' };
+        }
+        if (s === '3' || s === '0x3' || s === '0x03' || s.includes('manut') || s.includes('maint')) {
+          return { mode: 'maintenance', codeHex: '0x03' };
+        }
+        const hexMatch = s.match(/0x([0-9a-f]+)/i);
+        if (hexMatch) return normalizeEventMode(parseInt(hexMatch[1], 16));
+        return { mode: 'unknown', codeHex: s || '0x??' };
+      }
+
+      function processIncomingLine(line) {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+
+        // A) JSON estruturado (beacon ou ACK de manutenção)
+        if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+          try {
+            const obj = JSON.parse(trimmed);
+            if (obj && typeof obj === 'object') {
+              // ACK de manutenção programada
+              if (obj.cmd === 'set_maintenance' && obj.status === 'ok') {
+                showToast(obj.msg || 'Manutenção programada confirmada pelo gateway!', 'success');
+                return;
+              }
+              if (obj.mac) {
+                const rawEvt = obj.event ?? obj.event_type ?? obj.mode ?? obj.evento;
+                const normalized = normalizeEventMode(rawEvt);
+                const rssiVal = obj.rssi !== undefined ? Number(obj.rssi) : null;
+                const batVal = (obj.battery ?? obj.bateria) !== undefined ? Number(obj.battery ?? obj.bateria) : null;
+
+                registerBeaconEvent({
+                  mac: String(obj.mac).trim().toUpperCase(),
+                  rssi: Number.isFinite(rssiVal) ? rssiVal : null,
+                  battery: Number.isFinite(batVal) ? batVal : null,
+                  mode: normalized.mode,
+                  codeHex: normalized.codeHex,
+                  timestamp: new Date()
+                });
+                return;
+              }
+            }
+          } catch {
+            // Segue para parser texto se não for JSON válido
+          }
+        }
+
+        // B) Formato texto do firmware ESP32:
+        // "MAC: aa:bb:cc:dd:ee:ff | RSSI: -62 | Evento: 0x02 | Bateria: 87%"
+        const macMatch = trimmed.match(/MAC\s*:\s*([0-9a-fA-F:]{11,17})/i);
+        const evtMatch = trimmed.match(/Evento\s*:\s*(0x[0-9a-fA-F]+|\d+|[a-zA-Z_-]+)/i);
+
+        if (macMatch && evtMatch) {
+          const rssiMatch = trimmed.match(/RSSI\s*:\s*(-?\d+)/i);
+          const batMatch = trimmed.match(/Bateria\s*:\s*(\d+)/i);
+          const normalized = normalizeEventMode(evtMatch[1]);
+
+          registerBeaconEvent({
+            mac: macMatch[1].toUpperCase(),
+            rssi: rssiMatch ? parseInt(rssiMatch[1], 10) : null,
+            battery: batMatch ? parseInt(batMatch[1], 10) : null,
+            mode: normalized.mode,
+            codeHex: normalized.codeHex,
+            timestamp: new Date()
+          });
+        }
+      }
+
+      // =========================================================
+      // 4. Web Serial API
+      // =========================================================
+      function updateConnectionUI(connected) {
+        state.isConnected = connected;
+        els.statusBadge.classList.toggle('connected', connected);
+        els.statusText.textContent = connected ? 'Conectado' : 'Desconectado';
+        els.btnConnect.classList.toggle('btn-primary', !connected);
+        els.btnConnect.classList.toggle('btn-danger', connected);
+        els.btnConnectLabel.textContent = connected ? 'Desconectar' : 'Conectar USB Serial';
+        els.baudRate.disabled = connected;
+        els.manualCmdInput.disabled = !connected;
+        els.btnSendManual.disabled = !connected;
+      }
+
+      async function connectSerial() {
+        if (!('serial' in navigator)) {
+          showToast('Web Serial API não suportada neste navegador.', 'error');
+          return;
+        }
+        try {
+          const baud = parseInt(els.baudRate.value, 10) || 115200;
+          appendLog('sys', 'Aguardando seleção da porta USB Serial...');
+          const port = await navigator.serial.requestPort();
+          await port.open({ baudRate: baud });
+
+          state.port = port;
+          state.isClosing = false;
+          state.readBuffer = '';
+          updateConnectionUI(true);
+          appendLog('sys', `Gateway conectado via USB Serial (${baud} bps).`);
+          showToast(`Gateway conectado a ${baud} bps.`, 'success');
+
+          readSerialLoop();
+        } catch (err) {
+          if (err && err.name === 'NotFoundError') {
+            appendLog('sys', 'Seleção de porta cancelada.');
+          } else {
+            appendLog('err', `Erro ao abrir porta serial: ${err.message || err}`);
+            showToast('Não foi possível conectar à porta USB Serial.', 'error');
+          }
+          updateConnectionUI(false);
+        }
+      }
+
+      async function disconnectSerial(silent = false) {
+        if (!state.port && !state.isConnected) return;
+        state.isClosing = true;
+
+        try {
+          if (state.reader) await state.reader.cancel();
+        } catch { /* ignora */ }
+
+        try {
+          if (state.port) await state.port.close();
+        } catch (err) {
+          if (!silent) appendLog('err', `Aviso ao fechar porta: ${err.message || err}`);
+        } finally {
+          state.reader = null;
+          state.port = null;
+          state.readBuffer = '';
+          updateConnectionUI(false);
+          if (!silent) {
+            appendLog('sys', 'Conexão USB Serial encerrada.');
+            showToast('Desconectado do gateway.', 'info');
+          }
+        }
+      }
+
+      async function readSerialLoop() {
+        const decoder = new TextDecoder();
+        while (state.port && state.port.readable && !state.isClosing) {
+          const reader = state.port.readable.getReader();
+          state.reader = reader;
+          try {
+            while (true) {
+              const { value, done } = await reader.read();
+              if (done) break;
+              if (value) {
+                state.readBuffer += decoder.decode(value, { stream: true });
+                const lines = state.readBuffer.split(/\r?\n/);
+                state.readBuffer = lines.pop();
+                for (const rawLine of lines) {
+                  const line = rawLine.trim();
+                  if (!line) continue;
+                  appendLog('rx', line);
+                  processIncomingLine(line);
+                }
+              }
+            }
+          } catch (err) {
+            if (!state.isClosing) {
+              appendLog('err', `Erro na leitura serial: ${err.message || err}`);
+            }
+          } finally {
+            reader.releaseLock();
+            state.reader = null;
+          }
+        }
+      }
+
+      async function sendSerialLine(text) {
+        if (!state.port || !state.port.writable || !state.isConnected) {
+          return false;
+        }
+        const cleanText = text.replace(/[\r\n]+/g, '');
+        const encoder = new TextEncoder();
+        const writer = state.port.writable.getWriter();
+        try {
+          await writer.write(encoder.encode(cleanText + '\n'));
+          appendLog('tx', cleanText);
+          return true;
+        } catch (err) {
+          appendLog('err', `Erro ao transmitir dados: ${err.message || err}`);
+          showToast('Falha ao enviar dados pela porta serial.', 'error');
+          return false;
+        } finally {
+          writer.releaseLock();
+        }
+      }
+
+      // =========================================================
+      // 5. Aba / Drawer de Manutenção Programada (3 Blocos)
+      // =========================================================
+      function openMaintenanceDrawer() {
+        if (!state.maintSelectedMac) {
+          if (state.selectedMac && state.beacons.has(state.selectedMac)) {
+            state.maintSelectedMac = state.selectedMac;
+          } else if (state.beacons.size > 0) {
+            state.maintSelectedMac = Array.from(state.beacons.keys())[0];
+          }
+        }
+        renderMaintenanceBeaconList();
+        updateMaintenancePreview();
+
+        els.drawerBackdrop.classList.add('open');
+        els.maintenanceDrawer.classList.add('open');
+        els.drawerBackdrop.setAttribute('aria-hidden', 'false');
+        els.maintenanceDrawer.setAttribute('aria-hidden', 'false');
+      }
+
+      function closeMaintenanceDrawer() {
+        els.drawerBackdrop.classList.remove('open');
+        els.maintenanceDrawer.classList.remove('open');
+        els.drawerBackdrop.setAttribute('aria-hidden', 'true');
+        els.maintenanceDrawer.setAttribute('aria-hidden', 'true');
+      }
+
+      function renderMaintenanceBeaconList() {
+        const count = state.beacons.size;
+        els.maintCountLabel.textContent = `${count} ${count === 1 ? 'lido' : 'lidos'}`;
+
+        if (count === 0) {
+          els.maintBeaconList.innerHTML = `<div class="maint-empty-hint">Nenhum beacon lido nesta sessão ainda. Use a opção abaixo para digitar um MAC manualmente.</div>`;
+          return;
+        }
+
+        const sorted = Array.from(state.beacons.values()).sort(
+          (a, b) => b.lastTimestamp.getTime() - a.lastTimestamp.getTime()
+        );
+
+        els.maintBeaconList.innerHTML = sorted.map((b) => {
+          const isSel = !state.maintManualMode && state.maintSelectedMac === b.mac;
+          const rem = formatRemaining(b.maintenanceUntil);
+          const statusStr = rem ? `Manutenção (${rem})` : 'Normal';
+
+          return `
+            <button type="button" class="maint-beacon-option ${isSel ? 'selected' : ''}" data-mac="${escapeHtml(b.mac)}" role="option" aria-selected="${isSel}">
+              <div class="maint-beacon-option-top">
+                <span>${escapeHtml(b.mac)}</span>
+                <span style="font-size:0.72rem;color:${rem ? '#fde68a' : 'var(--success-text)'};">${statusStr}</span>
+              </div>
+              <div class="maint-beacon-option-sub">
+                <span>RSSI: ${b.lastRssi !== null ? b.lastRssi + ' dBm' : '—'}</span>
+                <span>Bateria: ${b.lastBattery !== null ? b.lastBattery + '%' : '—'}</span>
+              </div>
+            </button>`;
+        }).join('');
+
+        els.maintBeaconList.querySelectorAll('.maint-beacon-option').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            state.maintManualMode = false;
+            state.maintSelectedMac = btn.getAttribute('data-mac');
+            els.maintManualMac.style.display = 'none';
+            els.btnToggleManualMac.textContent = '+ Digitar endereço MAC manualmente';
+            renderMaintenanceBeaconList();
+            updateMaintenancePreview();
+          });
+        });
+      }
+
+      function getMaintenancePayload() {
+        const mac = (state.maintManualMode ? els.maintManualMac.value : (state.maintSelectedMac || '')).trim().toUpperCase();
+        const val = Math.max(1, parseInt(els.maintDurationValue.value, 10) || 1);
+        const unit = els.maintDurationUnit.value;
+        const durationSec = unit === 'hours' ? val * 3600 : val * 60;
+
+        return {
+          mac,
+          durationSec,
+          payload: {
+            cmd: 'set_maintenance',
+            mac: mac || 'AA:BB:CC:DD:EE:FF',
+            duration_sec: durationSec
+          }
+        };
+      }
+
+      function updateMaintenancePreview() {
+        const { durationSec, payload } = getMaintenancePayload();
+        els.maintSecondsDisplay.textContent = `Equivalente a transmitir: ${durationSec}s`;
+        els.maintJsonPreview.textContent = JSON.stringify(payload);
+      }
+
+      // =========================================================
+      // 6. Simulador (Sem Hardware)
+      // =========================================================
+      function simulateBeaconRead(mac, mode) {
+        const rssi = -Math.floor(48 + Math.random() * 40);
+        const battery = Math.floor(62 + Math.random() * 38);
+        const hex = mode === 'movement' ? '0x02' : '0x01';
+        const fakeLine = `MAC: ${mac} | RSSI: ${rssi} | Evento: ${hex} | Bateria: ${battery}%`;
+
+        appendLog('rx', `[SIM] ${fakeLine}`);
+        processIncomingLine(fakeLine);
+      }
+
+      // =========================================================
+      // Eventos de Interface
+      // =========================================================
+      els.btnConnect.addEventListener('click', () => {
+        if (state.isConnected) disconnectSerial(false);
+        else connectSerial();
+      });
+
+      els.btnSimMove.addEventListener('click', () => simulateBeaconRead(PRIMARY_SIM_MAC, 'movement'));
+      els.btnSimKa.addEventListener('click', () => simulateBeaconRead(PRIMARY_SIM_MAC, 'keepalive'));
+      els.btnSimOther.addEventListener('click', () => {
+        state.simCounter += 1;
+        const suffix = String((state.simCounter % 90) + 10);
+        const mac = `AA:BB:CC:11:22:${suffix}`;
+        const mode = state.simCounter % 2 === 0 ? 'movement' : 'keepalive';
+        simulateBeaconRead(mac, mode);
+      });
+
+      els.btnClearBeacons.addEventListener('click', () => {
+        state.beacons.clear();
+        state.selectedMac = null;
+        state.maintSelectedMac = null;
+        state.totalEvents = 0;
+        state.totalMove = 0;
+        state.totalKa = 0;
+        renderMetrics();
+        renderBeaconList();
+        renderBeaconDetail();
+        showToast('Lista de beacons e histórico limpos.', 'info');
+      });
+
+      els.btnClearLog.addEventListener('click', () => {
+        els.terminalOutput.innerHTML = '';
+        appendLog('sys', 'Monitor serial limpo.');
+      });
+
+      els.manualCmdForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const cmd = els.manualCmdInput.value.trim();
+        if (!cmd) return;
+        const sent = await sendSerialLine(cmd);
+        if (sent) els.manualCmdInput.value = '';
+      });
+
+      // Eventos do Drawer de Manutenção Programada
+      els.btnOpenMaintenance.addEventListener('click', openMaintenanceDrawer);
+      els.btnCloseMaintenance.addEventListener('click', closeMaintenanceDrawer);
+      els.drawerBackdrop.addEventListener('click', closeMaintenanceDrawer);
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && els.maintenanceDrawer.classList.contains('open')) {
+          closeMaintenanceDrawer();
+        }
+      });
+
+      els.btnToggleManualMac.addEventListener('click', () => {
+        state.maintManualMode = !state.maintManualMode;
+        els.maintManualMac.style.display = state.maintManualMode ? 'block' : 'none';
+        els.btnToggleManualMac.textContent = state.maintManualMode
+          ? '← Voltar para seleção na lista'
+          : '+ Digitar endereço MAC manualmente';
+        if (state.maintManualMode) els.maintManualMac.focus();
+        renderMaintenanceBeaconList();
+        updateMaintenancePreview();
+      });
+
+      els.maintManualMac.addEventListener('input', updateMaintenancePreview);
+      els.maintDurationValue.addEventListener('input', updateMaintenancePreview);
+      els.maintDurationUnit.addEventListener('change', updateMaintenancePreview);
+
+      document.querySelectorAll('.chip-btn').forEach((chip) => {
+        chip.addEventListener('click', () => {
+          els.maintDurationValue.value = chip.getAttribute('data-val');
+          els.maintDurationUnit.value = chip.getAttribute('data-unit');
+          updateMaintenancePreview();
+        });
+      });
+
+      els.maintenanceForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const { mac, durationSec, payload } = getMaintenancePayload();
+
+        if (!mac) {
+          showToast('Selecione um beacon na lista ou digite um endereço MAC.', 'warning');
+          return;
+        }
+
+        const jsonStr = JSON.stringify(payload);
+        if (state.isConnected) {
+          await sendSerialLine(jsonStr);
+          showToast(`Manutenção programada (${durationSec}s) enviada para ${mac}.`, 'success');
+        } else {
+          appendLog('sys', `[SIMULADO/OFFLINE] ${jsonStr}`);
+          showToast(`Serial desconectada: envio simulado para ${mac} (${durationSec}s).`, 'warning');
+        }
+
+        // Atualiza status visual do beacon com contagem regressiva
+        if (state.beacons.has(mac)) {
+          state.beacons.get(mac).maintenanceUntil = Date.now() + durationSec * 1000;
+          renderBeaconList();
+          if (state.selectedMac === mac) renderBeaconDetail();
+        }
+
+        closeMaintenanceDrawer();
+      });
+
+      // Atualiza contagens regressivas de manutenção a cada 1 segundo
+      setInterval(() => {
+        let hasActiveMaint = false;
+        state.beacons.forEach((b) => {
+          if (b.maintenanceUntil) {
+            if (Date.now() >= b.maintenanceUntil) {
+              b.maintenanceUntil = null;
+            }
+            hasActiveMaint = true;
+          }
+        });
+        if (hasActiveMaint) {
+          renderBeaconList();
+          if (state.selectedMac) renderBeaconDetail();
+          if (els.maintenanceDrawer.classList.contains('open')) renderMaintenanceBeaconList();
+        }
+      }, 1000);
+
+      // Detecção de desconexão física do cabo USB
+      if ('serial' in navigator) {
+        navigator.serial.addEventListener('disconnect', (event) => {
+          if (state.port && event.target === state.port) {
+            appendLog('err', 'Cabo USB desconectado fisicamente.');
+            showToast('Gateway desconectado (cabo USB removido).', 'error');
+            disconnectSerial(true);
+          }
+        });
+      }
+
+      // =========================================================
+      // Inicialização
+      // =========================================================
+      function init() {
+        updateMaintenancePreview();
+        if (!('serial' in navigator)) {
+          els.unsupportedBanner.classList.add('visible');
+          els.btnConnect.disabled = true;
+          els.baudRate.disabled = true;
+          appendLog('err', 'Web Serial API indisponível neste navegador. Use Chrome ou Edge em HTTPS/localhost.');
+        } else {
+          appendLog('sys', 'Monitor de Debug pronto. Conecte o gateway ESP32 ou use o Simulador.');
+        }
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>
